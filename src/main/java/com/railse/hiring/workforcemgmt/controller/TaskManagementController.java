@@ -3,21 +3,22 @@ package com.railse.hiring.workforcemgmt.controller;
 
 import com.railse.hiring.workforcemgmt.common.model.response.Response;
 import com.railse.hiring.workforcemgmt.dto.*;
-import com.railse.hiring.workforcemgmt.model.enums.Priority;
-import com.railse.hiring.workforcemgmt.service.TaskManagementService;
-import org.springframework.http.ResponseEntity;
+import com.railse.hiring.workforcemgmt.service.v0.TaskManagementServiceV0;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.List;
 
+
 @RestController
-@RequestMapping("/task-mgmt")
+@RequestMapping("/v1/task-mgmt")
 public class TaskManagementController {
 
-    private final TaskManagementService taskManagementService;
+
+    private final TaskManagementServiceV0 taskManagementService;
 
 
-    public TaskManagementController(TaskManagementService taskManagementService) {
+    public TaskManagementController(TaskManagementServiceV0 taskManagementService) {
         this.taskManagementService = taskManagementService;
     }
 
@@ -46,31 +47,8 @@ public class TaskManagementController {
     }
 
 
-
     @PostMapping("/fetch-by-date/v2")
     public Response<List<TaskManagementDto>> fetchByDate(@RequestBody TaskFetchByDateRequest request) {
         return new Response<>(taskManagementService.fetchTasksByDate(request));
     }
-
-    @GetMapping("/tasks/priority/{priority}")
-    public Response<List<TaskManagementDto>> getAllTasksByPriority(@PathVariable("priority") String priority) {
-        return new Response<>(taskManagementService.getAllTasksByPriority(Priority.valueOf(priority.toUpperCase())));
-    }
-
-
-    @PutMapping("/update-task-priority")
-    public Response<List<TaskManagementDto>> updateTaskPriority(@RequestBody UpdateTaskPriorityRequest request) {
-
-        System.out.println("Received request to update task priority: " + request);
-        return new Response<>(taskManagementService.updateTaskPriority(request));
-    }
-
-    @PostMapping("/tasks/{taskId}/comment")
-    public ResponseEntity<Void> addComment(@PathVariable Long taskId, @RequestBody AddCommentRequestDto request) {
-        taskManagementService.addComment(taskId, request.getAuthor(), request.getCommentText());
-        return ResponseEntity.ok().build();
-    }
-
-
-
 }
