@@ -72,6 +72,11 @@ public class TaskManagementControllerV2 {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/fetch-by-date/v1")
+    public Response<List<TaskManagementDto>> fetchByDateOnly(@RequestBody TaskFetchByDateRequest request) {
+        return new Response<>(taskManagementService.fetchTasksByDateV0(request));
+    }
+
 
 
 }

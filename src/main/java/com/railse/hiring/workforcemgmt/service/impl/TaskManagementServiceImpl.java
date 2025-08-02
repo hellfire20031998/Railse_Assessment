@@ -167,45 +167,49 @@ public List<TaskManagementDto> updateTasks(UpdateTaskRequest updateRequest) {
 }
 
 
-
     public String assignByReference(AssignByReferenceRequest request) {
         List<Task> applicableTasks = Task.getTasksByReferenceType(request.getReferenceType());
         List<TaskManagement> existingTasks = taskRepository
                 .findByReferenceIdAndReferenceType(request.getReferenceId(), request.getReferenceType());
 
         for (Task taskType : applicableTasks) {
-            // Filter existing tasks of this type that are not completed
             List<TaskManagement> tasksOfType = existingTasks.stream()
-                    .filter(t -> t.getTask() == taskType && t.getStatus() != TaskStatus.COMPLETED)
+                    .filter(t -> t.getTask().equals(taskType) && t.getStatus() != TaskStatus.COMPLETED)
                     .collect(Collectors.toList());
 
-            boolean alreadyAssigned = false;
+            boolean alreadyAssigned = tasksOfType.stream()
+                    .anyMatch(t -> t.getAssigneeId().equals(request.getAssigneeId())
+                            && t.getStatus() == TaskStatus.ASSIGNED);
 
+            if (alreadyAssigned) continue;
+
+            TaskManagement lastSavedTask = null;
+
+            // Cancel existing tasks of this type
             for (TaskManagement task : tasksOfType) {
-                if (!task.getAssigneeId().equals(request.getAssigneeId())) {
-                    // Cancel tasks assigned to other users
-                    task.setStatus(TaskStatus.CANCELLED);
-                    taskRepository.save(task);
-                } else {
-                    // Found task already assigned to same user, no need to reassign
-                    alreadyAssigned = true;
-                }
+                task.setStatus(TaskStatus.CANCELLED);
+                lastSavedTask = taskRepository.save(task); // Save and keep reference
             }
 
-            if (!alreadyAssigned) {
-                // No task assigned to this user yet, create a new one
+            // Only create a new task if something was cancelled
+            if (lastSavedTask != null) {
                 TaskManagement newTask = new TaskManagement();
-                newTask.setReferenceId(request.getReferenceId());
-                newTask.setReferenceType(request.getReferenceType());
-                newTask.setTask(taskType);
+                newTask.setReferenceId(lastSavedTask.getReferenceId());
+                newTask.setReferenceType(lastSavedTask.getReferenceType());
+                newTask.setTask(lastSavedTask.getTask());
                 newTask.setAssigneeId(request.getAssigneeId());
+                newTask.setPriority(lastSavedTask.getPriority());
+                newTask.setTaskDeadlineTime(lastSavedTask.getTaskDeadlineTime());
                 newTask.setStatus(TaskStatus.ASSIGNED);
+                newTask.setDescription("Task reassigned to new user.");
                 taskRepository.save(newTask);
             }
         }
 
+
         return "Tasks reassigned successfully for reference " + request.getReferenceId();
     }
+
 
     @Override
     public List<TaskManagementDto> fetchTasksByDate(TaskFetchByDateRequest request) {
@@ -228,6 +232,28 @@ public List<TaskManagementDto> updateTasks(UpdateTaskRequest updateRequest) {
                     boolean overdueOpenTask = (deadline < start) && isActive;
 
                     return isActive && (withinDateRange || overdueOpenTask);
+                })
+                .collect(Collectors.toList());
+
+        return taskMapper.modelListToDtoList(filteredTasks);
+    }
+
+    @Override
+    public List<TaskManagementDto> fetchTasksByDateV0(TaskFetchByDateRequest request) {
+        List<TaskManagement> tasks = taskRepository.findByAssigneeIdIn(request.getAssigneeIds());
+
+        Long start = request.getStartDate();
+        Long end = request.getEndDate();
+
+        List<TaskManagement> filteredTasks = tasks.stream()
+                .filter(task -> {
+                    Long deadline = task.getTaskDeadlineTime();
+                    if (deadline == null) return false;
+
+                    boolean isActive = !(task.getStatus() == TaskStatus.CANCELLED);
+
+
+                    return isActive ;
                 })
                 .collect(Collectors.toList());
 
